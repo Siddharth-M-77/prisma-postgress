@@ -1,0 +1,112 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                   String          @id @default(uuid(7)) @db.Uuid
+  name                 String?
+  email                String          @unique
+  password             String
+  phone                String?
+  mainWallet           Decimal         @default(0.0) @db.Decimal(18, 4)
+  roiWallet            Decimal         @default(0.0) @db.Decimal(18, 4)
+  levelWallet          Decimal         @default(0.0) @db.Decimal(18, 4)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  referralBonuses      ReferralBonus[]
+  levelIncomesReceived LevelIncome[]   @relation("Receiver")
+  levelIncomesGiven    LevelIncome[]   @relation("ReceivedFrom")
+  rois                 Roi[]
+  rankRewards          RankReward[]
+  investments          Investment[]
+  withdrawals          Withdrawal[]
+}
+
+model ReferralBonus {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  amount    Decimal  @db.Decimal(18, 4)
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model LevelIncome {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  userId           String   @db.Uuid
+  receivedFromId   String   @db.Uuid
+  receiverUser     User     @relation("Receiver", fields: [userId], references: [id])
+  receivedFromUser User     @relation("ReceivedFrom", fields: [receivedFromId], references: [id])
+  amount           Decimal  @db.Decimal(18, 4)
+  baseAmount       Decimal  @db.Decimal(18, 4)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+  @@index([receivedFromId])
+}
+
+model Roi {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+  baseAmount Decimal  @db.Decimal(18, 4)
+  amount     Decimal  @db.Decimal(18, 4)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model RankReward {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  rank      Int
+  amount    Decimal  @db.Decimal(18, 4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Investment {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Decimal  @db.Decimal(18, 4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Withdrawal {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id])
+  amount    Decimal          @db.Decimal(18, 4)
+  status    WithdrawalStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId])
+}
