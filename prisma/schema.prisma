@@ -36,9 +36,11 @@ model User {
   mainWallet           Decimal         @default(0.0) @db.Decimal(18, 4)
   roiWallet            Decimal         @default(0.0) @db.Decimal(18, 4)
   levelWallet          Decimal         @default(0.0) @db.Decimal(18, 4)
+  referralWallet       Decimal         @default(0.0) @db.Decimal(18, 4)
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
-  referralBonuses      ReferralBonus[]
+  referralBonuses      ReferralBonus[] @relation("ReferralReceiver")
+  referralBonusesGiven ReferralBonus[] @relation("ReferralFrom")
   levelIncomesReceived LevelIncome[]   @relation("Receiver")
   levelIncomesGiven    LevelIncome[]   @relation("ReceivedFrom")
   rois                 Roi[]
@@ -50,14 +52,21 @@ model User {
 }
 
 model ReferralBonus {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  amount    Decimal  @db.Decimal(18, 4)
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String     @id @default(uuid(7)) @db.Uuid
+  amount         Decimal    @db.Decimal(18, 4)
+  baseAmount     Decimal    @db.Decimal(18, 4)
+  percent        Decimal    @db.Decimal(5, 2)
+  userId         String     @db.Uuid
+  user           User       @relation("ReferralReceiver", fields: [userId], references: [id])
+  receivedFromId String     @db.Uuid
+  receivedFrom   User       @relation("ReferralFrom", fields: [receivedFromId], references: [id])
+  investmentId   String     @unique @db.Uuid
+  investment     Investment @relation(fields: [investmentId], references: [id])
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@index([userId])
+  @@index([receivedFromId])
 }
 
 model LevelIncome {
@@ -121,6 +130,7 @@ model Investment {
   status          InvestmentStatus @default(ACTIVE)
   lastRoiAt       DateTime?
   rois            Roi[]
+  referralBonus   ReferralBonus?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 

@@ -2,6 +2,10 @@ import { prisma } from "../lib/prisma.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { Prisma } from "../generated/prisma/client.js";
+
+// Sponsor ko har investment pe kitna percent bonus
+const REFERRAL_BONUS_PERCENT = 5;
 
 // Response mein password kabhi nahi bhejna
 const userSelect = {
@@ -131,15 +135,45 @@ export const updateUserProfile = async (req, res) => {
 export const Investment = async (req, res) => {
     const userId = req.user.id;
     const { amount } = req.body;
+    const user = await prisma.user.findUnique({
+        where: { id: userId }
+    });
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
     try {
-        const investment = await prisma.investment.create({
-            data: {
-                userId,
-                amount: amount,
-                dailyRoiPercent: 1,
-                totalDays: 30,
-                status: "ACTIVE",
+        // Investment aur referral bonus ek saath: ek fail hua to dono rollback
+        const investment = await prisma.$transaction(async (tx) => {
+            const investment = await tx.investment.create({
+                data: {
+                    userId,
+                    amount: amount,
+                    dailyRoiPercent: 1,
+                    totalDays: 30,
+                    status: "ACTIVE",
+                }
+            });
+
+            if (user.sponsorId) {
+                // Decimal se hisaab, JS number se nahi, taaki paise mein float ki galti na ho
+                const bonus = new Prisma.Decimal(amount).mul(REFERRAL_BONUS_PERCENT).div(100).toDecimalPlaces(4);
+                await tx.referralBonus.create({
+                    data: {
+                        userId: user.sponsorId,
+                        receivedFromId: userId,
+                        investmentId: investment.id,
+                        baseAmount: amount,
+                        percent: REFERRAL_BONUS_PERCENT,
+                        amount: bonus,
+                    }
+                });
+                // increment DB mein hi jodta hai, padh ke + karne se Decimal string ban jaata hai
+                await tx.user.update({
+                    where: { id: user.sponsorId },
+                    data: { referralWallet: { increment: bonus } }
+                });
             }
+            return investment;
         });
         return res.status(201).json({ message: "Investment created successfully", investment });
     } catch (error) {
