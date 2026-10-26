@@ -1,8 +1,8 @@
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../../lib/prisma.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { Prisma } from "../generated/prisma/client.js";
+import { Prisma } from "../../generated/prisma/client.js";
 
 // Sponsor ko har investment pe kitna percent bonus
 const REFERRAL_BONUS_PERCENT = 5;
