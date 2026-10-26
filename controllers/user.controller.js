@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 // Response mein password kabhi nahi bhejna
 const userSelect = {
@@ -8,12 +9,25 @@ const userSelect = {
     name: true,
     email: true,
     phone: true,
+    referralCode: true,
     createdAt: true,
     updatedAt: true,
 };
 
+// 0/O aur 1/I jaise milte-julte characters nahi, taaki code padhne mein galti na ho
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+const generateReferralCode = async () => {
+    while (true) {
+        const bytes = crypto.randomBytes(8);
+        const code = Array.from(bytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
+        const taken = await prisma.user.findUnique({ where: { referralCode: code } });
+        if (!taken) return code;
+    }
+};
+
 export const userRegister = async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, referralCode } = req.body;
     try {
         const existingUser = await prisma.user.findUnique({
             where: { email }
@@ -21,12 +35,22 @@ export const userRegister = async (req, res) => {
         if (existingUser) {
             return res.status(400).json({ message: "User with this email already exists" });
         }
+        let sponsorId = null;
+        if (referralCode) {
+            const sponsor = await prisma.user.findUnique({ where: { referralCode } });
+            if (!sponsor) {
+                return res.status(400).json({ message: "Invalid referral code" });
+            }
+            sponsorId = sponsor.id;
+        }
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await prisma.user.create({
             data: {
                 name,
                 email,
-                password: hashedPassword
+                password: hashedPassword,
+                referralCode: await generateReferralCode(),
+                sponsorId
             },
             select: userSelect
         })
@@ -103,3 +127,23 @@ export const updateUserProfile = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 }
+
+export const Investment = async (req, res) => {
+    const userId = req.user.id;
+    const { amount } = req.body;
+    try {
+        const investment = await prisma.investment.create({
+            data: {
+                userId,
+                amount: amount,
+                dailyRoiPercent: 1,
+                totalDays: 30,
+                status: "ACTIVE",
+            }
+        });
+        return res.status(201).json({ message: "Investment created successfully", investment });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}   

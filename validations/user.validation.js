@@ -4,6 +4,7 @@ export const registerSchema = Joi.object({
     name: Joi.string().trim().min(2).max(50).required(),
     email: Joi.string().trim().lowercase().email().required(),
     password: Joi.string().min(6).required(),
+    referralCode: Joi.string().trim().uppercase().length(8),
 });
 
 export const loginSchema = Joi.object({
@@ -23,6 +24,5 @@ export const changePasswordSchema = Joi.object({
 })
 
 export const investsSchema = Joi.object({
-    investmentAmount:Joi.number().min(1).max(1000000).required("Investment amount is required"),
-    txHash:Joi.string().required("Transaction hash is required"),
+    amount:Joi.number().min(1).max(1000000).required("Amount is required"),
 })

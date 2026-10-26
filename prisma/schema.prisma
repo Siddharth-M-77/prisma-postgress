@@ -12,6 +12,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum InvestmentStatus {
+  ACTIVE
+  COMPLETED
+}
+
 enum WithdrawalStatus {
   PENDING
   APPROVED
@@ -24,6 +29,10 @@ model User {
   email                String          @unique
   password             String
   phone                String?
+  referralCode         String          @unique
+  sponsorId            String?         @db.Uuid
+  sponsor              User?           @relation("Sponsor", fields: [sponsorId], references: [id])
+  referrals            User[]          @relation("Sponsor")
   mainWallet           Decimal         @default(0.0) @db.Decimal(18, 4)
   roiWallet            Decimal         @default(0.0) @db.Decimal(18, 4)
   levelWallet          Decimal         @default(0.0) @db.Decimal(18, 4)
@@ -36,6 +45,8 @@ model User {
   rankRewards          RankReward[]
   investments          Investment[]
   withdrawals          Withdrawal[]
+
+  @@index([sponsorId])
 }
 
 model ReferralBonus {
@@ -55,25 +66,36 @@ model LevelIncome {
   receivedFromId   String   @db.Uuid
   receiverUser     User     @relation("Receiver", fields: [userId], references: [id])
   receivedFromUser User     @relation("ReceivedFrom", fields: [receivedFromId], references: [id])
+  roiId            String   @db.Uuid
+  roi              Roi      @relation(fields: [roiId], references: [id])
+  level            Int
   amount           Decimal  @db.Decimal(18, 4)
   baseAmount       Decimal  @db.Decimal(18, 4)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  @@unique([roiId, level])
   @@index([userId])
   @@index([receivedFromId])
 }
 
 model Roi {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  userId     String   @db.Uuid
-  user       User     @relation(fields: [userId], references: [id])
-  baseAmount Decimal  @db.Decimal(18, 4)
-  amount     Decimal  @db.Decimal(18, 4)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id              String        @id @default(uuid(7)) @db.Uuid
+  userId          String        @db.Uuid
+  user            User          @relation(fields: [userId], references: [id])
+  investmentId    String        @db.Uuid
+  investment      Investment    @relation(fields: [investmentId], references: [id])
+  day             Int
+  baseAmount      Decimal       @db.Decimal(18, 4)
+  amount          Decimal       @db.Decimal(18, 4)
+  levelIncomeDone Boolean       @default(false)
+  levelIncomes    LevelIncome[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
+  @@unique([investmentId, day])
   @@index([userId])
+  @@index([levelIncomeDone])
 }
 
 model RankReward {
@@ -89,14 +111,21 @@ model RankReward {
 }
 
 model Investment {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id])
-  amount    Decimal  @db.Decimal(18, 4)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String           @id @default(uuid(7)) @db.Uuid
+  userId          String           @db.Uuid
+  user            User             @relation(fields: [userId], references: [id])
+  amount          Decimal          @db.Decimal(18, 4)
+  dailyRoiPercent Decimal          @default(1) @db.Decimal(5, 2)
+  totalDays       Int              @default(180)
+  daysPaid        Int              @default(0)
+  status          InvestmentStatus @default(ACTIVE)
+  lastRoiAt       DateTime?
+  rois            Roi[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([userId])
+  @@index([status, lastRoiAt])
 }
 
 model Withdrawal {
