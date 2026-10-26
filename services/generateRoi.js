@@ -1,6 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 
-const BATCH_SIZE = 3000;
+const BATCH_SIZE = 5000;
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
 
 const getTodayStartIST = () => {
@@ -40,9 +40,10 @@ const payRoiBatch = async (todayStart) => {
 
      upd As (
      UPDATE "Investment" i SET
-         "daysPaid" = i."daysPaid" + 1,
-         "lastRoiAt" = ${now},
-       "status" = (CASE WHEN i."daysPaid" + 1 >= i."totalDays" THEN 'COMPLETED' ELSE 'ACTIVE' END)::"InvestmentStatus"
+        "daysPaid" = i."daysPaid" + 1,
+        "lastRoiAt" = ${now},
+        "updatedAt" = ${now},
+        "status" = (CASE WHEN i."daysPaid" + 1 >= i."totalDays" THEN 'COMPLETED' ELSE 'ACTIVE' END)::"InvestmentStatus"
        FROM due
        WHERE i.id = due.id
        RETURNING i.id, i."userId", i.amount,
