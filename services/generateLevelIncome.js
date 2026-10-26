@@ -1,9 +1,8 @@
 import { prisma } from "../lib/prisma.js";
 
 const BATCH_SIZE = 1000;
-// Level 1 se 5 tak, ROI amount ka kitna percent
 const LEVEL_PERCENTS = [10, 5, 3, 2, 1];
-
+// -- SQL mein comment hota hai, jaise JS mein //. Ye 3 words do hisson mein samjho:
 // Ek query mein poora batch: har ROI ke 5 sponsor dhoondo, LevelIncome rows insert,
 // levelWallet update, aur ROI ko done mark karo. Sab ek transaction hai.
 const payLevelIncomeBatch = async () => {
@@ -16,6 +15,7 @@ const payLevelIncomeBatch = async () => {
             LIMIT ${BATCH_SIZE}
             -- Do run ek saath chalein to ek ROI ek hi run uthayega
             FOR UPDATE SKIP LOCKED
+            --for update skip locked ka matlab hai ki agar koi aur transaction is ROI ko update kar raha hai to is query ko wait nahi karna chahiye, balki us ROI ko skip karke agla ROI uthana chahiye. Isse concurrency issues kam hote hain aur multiple cron jobs ek saath chal sakte hain bina deadlock ke.
         ),
         upline AS (
             -- Level 1: ROI lene wale ka sponsor

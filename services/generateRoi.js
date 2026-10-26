@@ -24,6 +24,13 @@ const getTodayStartIST = () => {
 // INSERT INTO "Roi" (col1, col2, col3, col4, col5, col6, col7, col8)
 // SELECT            val1, val2, val3, val4, val5, val6, val7, val8 FROM upd
 
+// -------------------------------------------------------------------------
+
+// ham double quotes ka use kyun karte hai?
+// Double quotes ka use PostgreSQL mein tab kiya jata hai jab aap column names ya table names ko case-sensitive banana chahte hain ya unmein special characters (jaise spaces) hote hain. Agar aap double quotes ka use nahi karte hain, to PostgreSQL automatically unhe lowercase mein convert kar deta hai.
+// like for id you wrote direct id but for userId you wrote "userId" because it is camelCase and PostgreSQL would convert it to lowercase userid if not quoted.
+
+// -- SQL mein comment hota hai, jaise JS mein //. Ye 3 words do hisson mein samjho:
 const payRoiBatch = async (todayStart) => {
     const now = new Date();
     const result = await prisma.$queryRaw`
