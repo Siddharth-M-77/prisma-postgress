@@ -11,7 +11,6 @@ export const startRoiCron = () => {
         isRunning = true;
         try {
             await generateRoi();
-            // ROI ke baad sponsors ko level income. Fail ho to agle run mein bache hue ROI utha lega
             await generateLevelIncome();
         } catch (error) {
             console.error("ROI cron failed:", error.message);

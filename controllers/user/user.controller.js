@@ -135,6 +135,9 @@ export const updateUserProfile = async (req, res) => {
 export const Investment = async (req, res) => {
     const userId = req.user.id;
     const { amount } = req.body;
+    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+    return res.status(400).json({ message: "Invalid amount" });
+    }
     const user = await prisma.user.findUnique({
         where: { id: userId }
     });
@@ -142,7 +145,6 @@ export const Investment = async (req, res) => {
         return res.status(404).json({ message: "User not found" });
     }
     try {
-        // Investment aur referral bonus ek saath: ek fail hua to dono rollback
         const investment = await prisma.$transaction(async (tx) => {
             const investment = await tx.investment.create({
                 data: {
@@ -155,7 +157,6 @@ export const Investment = async (req, res) => {
             });
 
             if (user.sponsorId) {
-                // Decimal se hisaab, JS number se nahi, taaki paise mein float ki galti na ho
                 const bonus = new Prisma.Decimal(amount).mul(REFERRAL_BONUS_PERCENT).div(100).toDecimalPlaces(4);
                 await tx.referralBonus.create({
                     data: {
@@ -167,7 +168,6 @@ export const Investment = async (req, res) => {
                         amount: bonus,
                     }
                 });
-                // increment DB mein hi jodta hai, padh ke + karne se Decimal string ban jaata hai
                 await tx.user.update({
                     where: { id: user.sponsorId },
                     data: { referralWallet: { increment: bonus } }
@@ -181,3 +181,71 @@ export const Investment = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 }   
+export const getUserInvestments = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+
+        const [investments, total] = await prisma.$transaction([
+            prisma.investment.findMany({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+                select: {
+                    id: true,
+                    amount: true,
+                    dailyRoiPercent: true,
+                    totalDays: true,
+                    daysPaid: true,
+                    status: true,
+                    createdAt: true,
+                },
+            }),
+            prisma.investment.count({ where: { userId } }),
+        ]);
+
+        return res.status(200).json({
+            investments,
+            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const getUserReferralBonuses = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 50);
+        const [referralBonuses, total] = await prisma.$transaction([
+            prisma.referralBonus.findMany({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+                select: {
+                    id: true,
+                    investmentId: true,
+                    baseAmount: true,
+                    percent: true,
+                    amount: true,
+                    createdAt: true,
+                    receivedFrom: { select: { id: true, name: true, email: true } },
+                },
+            }),
+            prisma.referralBonus.count({ where: { userId } }),
+        ]);
+
+        return res.status(200).json({
+            referralBonuses,
+            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
